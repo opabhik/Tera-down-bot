@@ -6,7 +6,7 @@ import asyncio
 import os, time
 import logging
 
-
+# Initialize Aria2 API
 aria2 = aria2p.API(
     aria2p.Client(
         host="http://localhost",
@@ -14,16 +14,22 @@ aria2 = aria2p.API(
         secret=""
     )
 )
+
 async def download_video(url, reply_msg, user_mention, user_id):
-    response = requests.get(f"https://terabox.udayscriptsx.workers.dev/?url={url}")
+    """Fetch video details and download using Aria2."""
+    
+    # Fetch video details from the API
+    response = requests.get(f"https://teraboxapi-phi.vercel.app/api?url={url}")
     response.raise_for_status()
     data = response.json()
 
-    resolutions = data["response"][0]["resolutions"]
-    fast_download_link = resolutions["Fast Download"]
-    thumbnail_url = data["response"][0]["thumbnail"]
-    video_title = data["response"][0]["title"]
+    # Extract relevant details
+    extracted_info = data["Extracted Info"][0]  # First item in list
+    fast_download_link = extracted_info["Direct Download Link"]
+    thumbnail_url = extracted_info["Thumbnails"]["360x270"]  # Best quality thumbnail
+    video_title = extracted_info["Title"]
 
+    # Start downloading
     download = aria2.add_uris([fast_download_link])
     start_time = datetime.now()
 
@@ -35,6 +41,8 @@ async def download_video(url, reply_msg, user_mention, user_id):
         speed = download.download_speed
         eta = download.eta
         elapsed_time_seconds = (datetime.now() - start_time).total_seconds()
+        
+        # Generate progress bar
         progress_text = format_progress_bar(
             filename=video_title,
             percentage=percentage,
@@ -54,6 +62,7 @@ async def download_video(url, reply_msg, user_mention, user_id):
     if download.is_complete:
         file_path = download.files[0].path
 
+        # Download and save the thumbnail
         thumbnail_path = "thumbnail.jpg"
         thumbnail_response = requests.get(thumbnail_url)
         with open(thumbnail_path, "wb") as thumb_file:
@@ -66,6 +75,8 @@ async def download_video(url, reply_msg, user_mention, user_id):
         raise Exception("Download failed")
 
 async def upload_video(client, file_path, thumbnail_path, video_title, reply_msg, collection_channel_id, user_mention, user_id, message):
+    """Upload video to Telegram."""
+    
     file_size = os.path.getsize(file_path)
     uploaded = 0
     start_time = datetime.now()
